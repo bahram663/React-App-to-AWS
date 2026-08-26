@@ -1,0 +1,33 @@
+name: CI
+
+# Pull requests get the same build as main, but nothing is uploaded — this is
+# the gate that stops a broken bundle from ever reaching the deploy workflow.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Check bundle output exists
+        run: test -f dist/index.html

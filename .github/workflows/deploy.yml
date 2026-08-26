@@ -1,0 +1,124 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'terraform/**'
+      - '.gitignore'
+  workflow_dispatch:
+
+# OIDC: the job mints a short-lived token that AWS trades for temporary
+# credentials. `contents: read` is all the checkout needs.
+permissions:
+  contents: read
+  id-token: write
+
+# One deploy at a time; a newer push supersedes an in-flight one, but never
+# cancels a run that is already uploading.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.summary.outputs.url }}
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: gha-deploy-${{ github.run_id }}
+
+      # Two passes, because the caching rules differ.
+      # 1. Hashed assets are immutable: a new build produces new filenames, so
+      #    they can be cached for a year and never invalidated.
+      - name: Upload hashed assets (long cache)
+        run: |
+          aws s3 sync dist/ "s3://${{ vars.S3_BUCKET }}/" \
+            --delete \
+            --exclude "*" \
+            --include "assets/*" \
+            --cache-control "public,max-age=31536000,immutable"
+
+      # 2. index.html and anything else at the root must never be cached at the
+      #    browser, or users keep loading the previous bundle after a deploy.
+      - name: Upload entry point and the rest (no cache)
+        run: |
+          aws s3 sync dist/ "s3://${{ vars.S3_BUCKET }}/" \
+            --delete \
+            --exclude "assets/*" \
+            --cache-control "public,max-age=0,must-revalidate"
+
+      - name: Invalidate CloudFront
+        id: invalidate
+        run: |
+          ID=$(aws cloudfront create-invalidation \
+            --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --paths "/*" \
+            --query 'Invalidation.Id' --output text)
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+          echo "Invalidation $ID created; waiting for it to complete."
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --id "$ID"
+
+      - name: Job summary
+        id: summary
+        run: |
+          DOMAIN=$(aws cloudfront get-distribution \
+            --id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --query 'Distribution.DomainName' --output text)
+          URL="https://$DOMAIN"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Deployed :rocket:"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| URL | $URL |"
+            echo "| Commit | \`${GITHUB_SHA:0:7}\` |"
+            echo "| Bucket | \`${{ vars.S3_BUCKET }}\` |"
+            echo "| Invalidation | \`${{ steps.invalidate.outputs.id }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"

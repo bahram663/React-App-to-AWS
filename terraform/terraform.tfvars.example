@@ -1,0 +1,30 @@
+# Copy to terraform.tfvars and edit. terraform.tfvars is gitignored.
+
+project_name = "atlas-dashboard"
+environment  = "prod"
+aws_region   = "eu-central-1"
+
+# Required for keyless GitHub Actions deploys. "owner/repo".
+github_repository    = "your-github-user/react-app-to-aws"
+github_deploy_branch = "main"
+
+# The GitHub OIDC provider is account-wide. If your account already has one
+# (from another project), set this to false or the apply fails with
+# EntityAlreadyExists.
+create_github_oidc_provider = true
+
+# PriceClass_100 = North America + Europe. Cheapest, fine for a demo.
+cloudfront_price_class = "PriceClass_100"
+
+# --- Optional: custom domain -------------------------------------------------
+# Leave empty to use the *.cloudfront.net URL and skip ACM entirely.
+# domain_name     = "dashboard.example.com"
+# route53_zone_id = "Z0123456789ABCDEFGHIJ"
+
+# --- Optional: access logs ---------------------------------------------------
+# enable_access_logs = true
+# log_retention_days = 30
+
+tags = {
+  Owner = "platform"
+}

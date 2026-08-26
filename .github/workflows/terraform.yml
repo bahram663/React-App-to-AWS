@@ -1,0 +1,87 @@
+name: Terraform
+
+# Infrastructure changes are reviewed as a plan on the PR, then applied
+# deliberately by hand. Nothing here runs automatically on a push to main —
+# an accidental infra apply is much more expensive than an accidental deploy.
+on:
+  pull_request:
+    branches: [main]
+    paths: ['terraform/**', '.github/workflows/terraform.yml']
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Which command to run'
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply]
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+concurrency:
+  group: terraform-production
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: terraform
+
+jobs:
+  terraform:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.action || 'plan' }}
+    runs-on: ubuntu-latest
+    # `apply` needs an approver on the environment; `plan` is safe to run freely.
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.action == 'apply' && 'production-infra' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.9.8'
+
+      # This role needs broader permissions than the deploy role (it creates
+      # buckets, distributions and IAM). Create it separately and store its ARN
+      # as TF_ROLE_ARN — do not reuse AWS_ROLE_ARN.
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.TF_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: gha-terraform-${{ github.run_id }}
+
+      - name: Format check
+        run: terraform fmt -check -recursive
+
+      - name: Init
+        run: terraform init -input=false
+
+      - name: Validate
+        run: terraform validate -no-color
+
+      - name: Plan
+        id: plan
+        run: terraform plan -input=false -no-color -out=tfplan
+        env:
+          TF_VAR_github_repository: ${{ github.repository }}
+
+      - name: Comment plan on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const plan = `${{ steps.plan.outputs.stdout }}`.slice(0, 60000)
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `#### Terraform plan\n\n<details><summary>Show plan</summary>\n\n\`\`\`terraform\n${plan}\n\`\`\`\n\n</details>`,
+            })
+
+      - name: Apply
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+        run: terraform apply -input=false -auto-approve tfplan
+        env:
+          TF_VAR_github_repository: ${{ github.repository }}
