@@ -216,11 +216,16 @@ git push origin main
 **No AWS access keys are stored anywhere.** The workflow requests a short-lived
 OIDC token from GitHub, and the IAM role's trust policy exchanges it for
 temporary credentials — but only for this repository and only for the `main`
-branch:
-
-```
-repo:your-user/react-app-to-aws:ref:refs/heads/main
-```
+branch. The trust policy checks the token's `repository` and `ref` claims
+directly (`bahram663/React-App-to-AWS` and `refs/heads/main`), rather than
+parsing them out of the `sub` claim — GitHub embeds immutable owner/repo IDs
+into `sub` for any account or repo that has ever been renamed
+(`repo:owner@123/name@456:ref:...`), which breaks a plain `owner/repo` match
+on `sub`. AWS still requires a `sub` (or `job_workflow_ref`) condition to be
+present on any GitHub OIDC trust policy, so [github_oidc.tf](terraform/github_oidc.tf)
+keeps a wildcarded one there purely to satisfy that requirement — the
+`repository`/`ref` conditions are the actual access boundary, since every
+condition in the statement must match.
 
 A fork, a different branch, or another repository entirely cannot assume it.
 
@@ -369,7 +374,7 @@ aws s3api delete-objects --bucket "$BUCKET" --delete "$(aws s3api list-object-ve
 | Symptom | Cause and fix |
 |---|---|
 | `Error: creating IAM OIDC Provider: EntityAlreadyExists` | The account already has the GitHub provider. Set `create_github_oidc_provider = false`. |
-| `Not authorized to perform sts:AssumeRoleWithWebIdentity` | The trust policy's `sub` does not match. Check `github_repository` is exactly `owner/repo` and that you pushed to `github_deploy_branch`. |
+| `Not authorized to perform sts:AssumeRoleWithWebIdentity` | The trust policy's `repository`/`ref` conditions don't match. Check `github_repository` is exactly `owner/repo`, that you pushed to `github_deploy_branch`, and that the deploy job doesn't target a GitHub `environment:` (that changes the token's `sub` claim and is unrelated to `repository`/`ref`, but worth ruling out if you've customized the workflow). |
 | `Credentials could not be loaded` in Actions | `permissions: id-token: write` is missing, or `AWS_ROLE_ARN` is unset. It is a repository **variable**, not a secret. |
 | `AccessDenied` at the CloudFront URL | The bucket is empty, or the first deploy has not run. Seed it with the `aws s3 sync` above. |
 | Deploy succeeded but the site is unchanged | The invalidation has not finished, or a proxy cached `index.html`. Hard-refresh; check the invalidation ID in the job summary. |

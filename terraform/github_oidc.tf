@@ -28,6 +28,9 @@ locals {
     ? aws_iam_openid_connect_provider.github[0].arn
     : data.aws_iam_openid_connect_provider.github_existing[0].arn
   ) : null
+
+  github_owner     = split("/", var.github_repository)[0]
+  github_repo_name = split("/", var.github_repository)[1]
 }
 
 data "aws_iam_policy_document" "github_assume_role" {
@@ -48,12 +51,33 @@ data "aws_iam_policy_document" "github_assume_role" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # Scoped to one repo and one branch. Without a `sub` condition any GitHub
-    # repository on the internet could assume this role.
+    # The real scoping: exact match on the `repository` and `ref` claims.
+    # These stay as plain "owner/repo" and "refs/heads/branch" strings
+    # regardless of whether the account or repo has ever been renamed.
     condition {
       test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:repository"
+      values   = [var.github_repository]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:ref"
+      values   = ["refs/heads/${var.github_deploy_branch}"]
+    }
+
+    # AWS requires every GitHub OIDC trust policy to also condition on `sub`
+    # (or `job_workflow_ref`) and rejects one that can't evaluate it. `sub`
+    # embeds immutable owner/repo IDs for any account or repo that has ever
+    # been renamed (e.g. `repo:owner@123/name@456:ref:...`), so it can't be
+    # matched exactly without hardcoding those IDs. This wildcard exists only
+    # to satisfy that requirement — the `repository`/`ref` conditions above
+    # are the actual access boundary, and every condition in this statement
+    # must match, so a loose `sub` here grants nothing on its own.
+    condition {
+      test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:ref:refs/heads/${var.github_deploy_branch}"]
+      values   = ["repo:${local.github_owner}*/${local.github_repo_name}*:ref:refs/heads/${var.github_deploy_branch}"]
     }
   }
 }
