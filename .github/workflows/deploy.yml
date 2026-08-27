@@ -104,10 +104,7 @@ jobs:
       - name: Job summary
         id: summary
         run: |
-          DOMAIN=$(aws cloudfront get-distribution \
-            --id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" \
-            --query 'Distribution.DomainName' --output text)
-          URL="https://$DOMAIN"
+          URL="${{ vars.SITE_URL }}"
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           {
             echo "### Deployed :rocket:"

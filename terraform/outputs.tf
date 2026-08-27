@@ -42,5 +42,6 @@ output "github_repository_variables" {
     AWS_ROLE_ARN               = local.create_oidc_role ? aws_iam_role.github_deploy[0].arn : "<set github_repository to generate>"
     S3_BUCKET                  = aws_s3_bucket.site.id
     CLOUDFRONT_DISTRIBUTION_ID = aws_cloudfront_distribution.site.id
+    SITE_URL                   = local.use_custom_domain ? "https://${var.domain_name}" : "https://${aws_cloudfront_distribution.site.domain_name}"
   }
 }

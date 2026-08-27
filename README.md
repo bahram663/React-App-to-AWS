@@ -177,7 +177,7 @@ at your DNS host, and the apply continues on its own.
 
 ## Wire up CI/CD
 
-The deploy workflow reads four **repository variables** (not secrets — none of
+The deploy workflow reads five **repository variables** (not secrets — none of
 these are sensitive, and variables are visible in logs, which makes debugging
 easier).
 
@@ -190,8 +190,9 @@ variable** and add:
 | `AWS_ROLE_ARN` | `arn:aws:iam::…:role/atlas-dashboard-prod-github-deploy` | `terraform output github_actions_role_arn` |
 | `S3_BUCKET` | `atlas-dashboard-prod-123456789012` | `terraform output s3_bucket` |
 | `CLOUDFRONT_DISTRIBUTION_ID` | `E2QW8XMPLE1234` | `terraform output cloudfront_distribution_id` |
+| `SITE_URL` | `https://d1234abcd5678.cloudfront.net` | `terraform output site_url` — used only for the job summary link, not for the deploy itself |
 
-Or copy all four at once:
+Or copy all five at once:
 
 ```bash
 terraform -chdir=terraform output github_repository_variables
@@ -201,10 +202,9 @@ With the `gh` CLI:
 
 ```bash
 cd terraform
-gh variable set AWS_REGION                 -b "$(terraform output -raw -json 2>/dev/null; echo eu-central-1)"
-gh variable set AWS_ROLE_ARN               -b "$(terraform output -raw github_actions_role_arn)"
-gh variable set S3_BUCKET                  -b "$(terraform output -raw s3_bucket)"
-gh variable set CLOUDFRONT_DISTRIBUTION_ID -b "$(terraform output -raw cloudfront_distribution_id)"
+terraform output -json github_repository_variables \
+  | jq -r 'to_entries[] | "\(.key)=\(.value)"' \
+  | while IFS='=' read -r k v; do gh variable set "$k" -b "$v"; done
 ```
 
 Then push:
