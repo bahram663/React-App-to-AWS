@@ -54,9 +54,6 @@ jobs:
     name: Deploy
     needs: build
     runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: ${{ steps.summary.outputs.url }}
     steps:
       - name: Download build artifact
         uses: actions/download-artifact@v4
