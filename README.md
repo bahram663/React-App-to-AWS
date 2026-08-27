@@ -1,9 +1,9 @@
 # Atlas Dashboard — React on AWS S3 + CloudFront
 
-A three-page React dashboard, the Terraform that puts it on AWS, and the GitHub
-Actions pipeline that redeploys it on every push to `main`.
+A three-page React portfolio dashboard, the Terraform that puts it on AWS, and
+the GitHub Actions pipeline that redeploys it on every push to `main`.
 
-- **App** — Vite + React 18 + React Router. Three routes, two charts, light/dark theme. No backend.
+- **App** — Vite + React 18 + React Router. Three routes, four chart types, light/dark theme. No backend.
 - **Infrastructure** — private S3 bucket, CloudFront with Origin Access Control, optional ACM certificate, an IAM role for CI. All in [terraform/](terraform/).
 - **CI/CD** — build on pull requests, build + upload + invalidate on push to `main`. Keyless auth via GitHub OIDC. All in [.github/workflows/](.github/workflows/).
 
@@ -35,8 +35,8 @@ Browser ──HTTPS──▶ CloudFront ──OAC/SigV4──▶ S3 (private)
 ```
 .
 ├── src/
-│   ├── components/          Layout, StatTile, TrendChart, BarChart
-│   ├── pages/               Overview, Analytics, Settings
+│   ├── components/          Layout, StatTile, TrendChart, AllocationBar, DivergingBar, icons
+│   ├── pages/               Overview, Holdings, Settings
 │   ├── data/metrics.js      Static sample data
 │   └── index.css            Design tokens + layout
 ├── terraform/
@@ -60,9 +60,9 @@ Browser ──HTTPS──▶ CloudFront ──OAC/SigV4──▶ S3 (private)
 
 | Route | What it shows |
 |---|---|
-| `/` — Overview | Hero figure, four KPI tiles with sparklines, a two-series trend chart with a crosshair tooltip |
-| `/analytics` | Cache hit rate by region (bar chart with a table view), delivery summary, deployment history |
-| `/settings` | Dashboard preferences, pipeline toggles, and the commit/ref/timestamp baked into the running bundle |
+| `/` — Overview | Hero figure, four KPI tiles with gradient sparklines, a portfolio-vs-benchmark trend chart (indexed to 100) with a crosshair tooltip, recent activity |
+| `/holdings` | Asset allocation (stacked bar with a table view), portfolio summary, today's movers (diverging bar chart), full holdings table |
+| `/settings` | Dashboard preferences, notification toggles, and the commit/ref/timestamp baked into the running bundle |
 
 ---
 
@@ -298,7 +298,7 @@ service principal *and* only when `AWS:SourceArn` matches this distribution — 
 nobody else's distribution can point at it. A second statement denies everything
 over plain HTTP.
 
-**Client-side routing.** `/analytics` is not an object in S3, so a hard refresh
+**Client-side routing.** `/holdings` is not an object in S3, so a hard refresh
 makes S3 answer `403 AccessDenied` (403 rather than 404, precisely because the
 bucket is private). Both 403 and 404 are rewritten to `/index.html` with a `200`,
 and React Router resolves the path. `error_caching_min_ttl = 0` keeps CloudFront
@@ -318,12 +318,16 @@ a CSP. The app loads no third-party scripts, styles, fonts, or images, so the CS
 is a strict `'self'` (with `'unsafe-inline'` for styles only, which React needs
 for inline `style` attributes).
 
-**Charts** are hand-written inline SVG — no charting dependency, which keeps the
-bundle at ~59 kB gzipped. Both charts carry hover tooltips; the trend chart uses
-one shared y-axis for both series (never a dual axis) with direct endpoint
-labels alongside the legend; the bar chart offers a table view, so no value is
-reachable only through colour. Series colours are a CVD-validated palette, with
-separately chosen steps for dark mode rather than an inverted flip.
+**Charts** are hand-written inline SVG (plus one plain-HTML stacked bar) — no
+charting dependency, which keeps the bundle at ~62 kB gzipped. Every chart
+carries a hover tooltip. The trend chart indexes the portfolio and its
+benchmark to a shared base of 100, since a dollar value and an index level
+aren't the same unit — one shared y-axis, never a dual axis — with direct
+endpoint labels alongside the legend. The allocation bar and holdings table
+both offer a table view, so no value is reachable only through colour, and the
+diverging "today's movers" bar pairs its gain/loss colour with an ▲/▼ marker
+and a text label rather than colour alone. Series colours are a CVD-validated
+palette, with separately chosen steps for dark mode rather than an inverted flip.
 
 ---
 

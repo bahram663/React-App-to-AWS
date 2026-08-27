@@ -1,10 +1,11 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
+import { GridIcon, LayersIcon, SlidersIcon } from './icons.jsx'
 
 const PAGES = [
-  { to: '/', label: 'Overview', title: 'Overview', blurb: 'Delivery health for the last 12 months.' },
-  { to: '/analytics', label: 'Analytics', title: 'Analytics', blurb: 'Cache performance and deploy history.' },
-  { to: '/settings', label: 'Settings', title: 'Settings', blurb: 'Dashboard preferences and build metadata.' },
+  { to: '/', label: 'Overview', title: 'Overview', blurb: 'Portfolio performance for the last 12 months.', Icon: GridIcon },
+  { to: '/holdings', label: 'Holdings', title: 'Holdings', blurb: 'Allocation, today’s movers, and every open position.', Icon: LayersIcon },
+  { to: '/settings', label: 'Settings', title: 'Settings', blurb: 'Dashboard preferences and build metadata.', Icon: SlidersIcon },
 ]
 
 function useTheme() {
@@ -35,7 +36,7 @@ export default function Layout() {
           <div className="brand-mark" aria-hidden="true">A</div>
           <div>
             <div className="brand-name">Atlas</div>
-            <div className="brand-sub">Edge delivery</div>
+            <div className="brand-sub">Wealth</div>
           </div>
         </div>
 
@@ -47,7 +48,7 @@ export default function Layout() {
               end={p.to === '/'}
               className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
             >
-              <span className="nav-dot" aria-hidden="true" />
+              <p.Icon size={17} />
               {p.label}
             </NavLink>
           ))}
@@ -66,13 +67,19 @@ export default function Layout() {
             <h1>{page.title}</h1>
             <p>{page.blurb}</p>
           </div>
-          <button
-            className="theme-toggle"
-            onClick={() => setTheme(next[theme])}
-            aria-label={`Theme: ${theme}. Switch to ${next[theme]}.`}
-          >
-            <span aria-hidden="true">{icon[theme]}</span> {theme}
-          </button>
+          <div className="topbar-actions">
+            <span className="account-pill">
+              <span className="account-pill-dot" aria-hidden="true" />
+              Demo Portfolio
+            </span>
+            <button
+              className="theme-toggle"
+              onClick={() => setTheme(next[theme])}
+              aria-label={`Theme: ${theme}. Switch to ${next[theme]}.`}
+            >
+              <span aria-hidden="true">{icon[theme]}</span> {theme}
+            </button>
+          </div>
         </header>
 
         <main className="content">

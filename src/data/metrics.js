@@ -8,92 +8,149 @@ export const MONTHS = [
 
 export const kpis = [
   {
-    id: 'requests',
-    label: 'Requests served',
-    value: 4_182_400,
-    format: 'compact',
-    delta: 12.4,
+    id: 'value',
+    label: 'Portfolio value',
+    value: 284_920,
+    format: 'currencyCompact',
+    delta: 8.9,
     upIsGood: true,
     period: 'vs. last month',
-    spark: [38, 41, 39, 45, 44, 51, 49, 56, 58, 61, 60, 68],
+    spark: [232140, 238900, 235600, 244800, 251300, 248900, 256700, 262400, 258100, 267900, 276300, 284920],
+    icon: 'wallet',
   },
   {
-    id: 'users',
-    label: 'Active users',
-    value: 12_940,
-    format: 'compact',
-    delta: 6.1,
+    id: 'day-change',
+    label: "Today's change",
+    value: 1240,
+    format: 'currencySigned',
+    delta: 0.44,
+    upIsGood: true,
+    period: 'today',
+    spark: [-320, 180, 540, -90, 410, 260, -150, 620, 380, -210, 890, 1240],
+    icon: 'pulse',
+  },
+  {
+    id: 'return',
+    label: 'Total return (YTD)',
+    value: 22.7,
+    format: 'percent1',
+    delta: 2.1,
     upIsGood: true,
     period: 'vs. last month',
-    spark: [22, 24, 25, 24, 27, 29, 28, 31, 33, 34, 36, 38],
+    spark: [0, 2.9, 1.5, 5.5, 8.3, 7.2, 10.6, 13.1, 11.2, 15.4, 19.0, 22.7],
+    icon: 'target',
   },
   {
-    id: 'latency',
-    label: 'Edge latency (p95)',
-    value: 84,
-    format: 'ms',
-    delta: -9.8,
+    id: 'cash',
+    label: 'Cash balance',
+    value: 12_590,
+    format: 'currencyCompact',
+    delta: -18.2,
     upIsGood: false,
     period: 'vs. last month',
-    spark: [118, 114, 110, 112, 105, 101, 99, 96, 93, 90, 87, 84],
-  },
-  {
-    id: 'errors',
-    label: 'Error rate',
-    value: 0.42,
-    format: 'percent',
-    delta: 0.7,
-    upIsGood: false,
-    period: 'vs. last month',
-    spark: [0.9, 0.8, 0.7, 0.6, 0.6, 0.5, 0.5, 0.45, 0.4, 0.38, 0.4, 0.42],
+    spark: [24200, 22100, 19800, 21400, 18700, 16300, 17900, 15200, 13600, 14800, 12100, 12590],
+    icon: 'piggy',
   },
 ]
 
-// Two series, one chart, one shared y-axis (both are "thousands of requests").
-export const trafficTrend = {
+// Both series indexed to 100 at the start of the window so they share one
+// y-axis honestly — portfolio value ($) and an index level aren't the same
+// unit, so this is "indexed to a common base," not a dual axis.
+export const portfolioTrend = {
   categories: MONTHS,
   series: [
     {
-      id: 'cdn',
-      name: 'CloudFront edge',
-      values: [214, 232, 248, 261, 279, 301, 318, 344, 366, 389, 402, 431],
+      id: 'portfolio',
+      name: 'This portfolio',
+      values: [100, 102.9, 101.5, 105.5, 108.3, 107.2, 110.6, 113.1, 111.2, 115.4, 119.0, 122.7],
     },
     {
-      id: 'origin',
-      name: 'S3 origin',
-      values: [58, 55, 51, 48, 44, 41, 37, 33, 30, 27, 24, 22],
+      id: 'benchmark',
+      name: 'S&P 500',
+      values: [100, 101.8, 100.2, 103.1, 104.7, 103.5, 106.0, 108.2, 106.5, 109.8, 112.9, 115.6],
     },
   ],
 }
 
-export const cacheHitByRegion = [
-  { region: 'us-east-1', value: 97.2 },
-  { region: 'eu-west-1', value: 95.8 },
-  { region: 'ap-south-1', value: 94.1 },
-  { region: 'sa-east-1', value: 91.6 },
-  { region: 'ap-northeast-1', value: 89.4 },
-  { region: 'af-south-1', value: 84.9 },
+// Part-to-whole: one stacked bar, four categories, values sum to the
+// portfolio value above so the two views reconcile.
+export const allocation = [
+  { id: 'equities', label: 'Equities', value: 181_960, pct: 63.9 },
+  { id: 'fixed-income', label: 'Fixed income', value: 48_028, pct: 16.8 },
+  { id: 'crypto', label: 'Crypto', value: 42_342, pct: 14.9 },
+  { id: 'cash', label: 'Cash', value: 12_590, pct: 4.4 },
 ]
 
-export const deployments = [
-  { sha: 'a91c4f2', branch: 'main', status: 'good', duration: '1m 52s', when: '2 hours ago', by: 'ci-bot' },
-  { sha: '7d30ba8', branch: 'main', status: 'good', duration: '2m 04s', when: 'yesterday', by: 'ci-bot' },
-  { sha: '15ee9c1', branch: 'main', status: 'warning', duration: '4m 31s', when: '3 days ago', by: 'ci-bot' },
-  { sha: 'c0442de', branch: 'main', status: 'good', duration: '1m 47s', when: '5 days ago', by: 'ci-bot' },
-  { sha: 'bb7f019', branch: 'main', status: 'critical', duration: '0m 39s', when: '6 days ago', by: 'ci-bot' },
+// Largest position first.
+export const holdings = [
+  { symbol: 'VOO', name: 'Vanguard S&P 500 ETF', category: 'Equities', units: 260, unitLabel: 'sh', avgCost: 360.00, price: 452.60, value: 117_676, dayChangePct: 0.9, totalReturnPct: 25.7 },
+  { symbol: 'TLT', name: 'iShares 20+ Yr Treasury ETF', category: 'Fixed income', units: 420, unitLabel: 'sh', avgCost: 98.40, price: 91.20, value: 38_304, dayChangePct: -0.3, totalReturnPct: -7.3 },
+  { symbol: 'BTC', name: 'Bitcoin', category: 'Crypto', units: 0.42, unitLabel: 'BTC', avgCost: 38_200.00, price: 67_900.00, value: 28_518, dayChangePct: 4.1, totalReturnPct: 77.7 },
+  { symbol: 'MSFT', name: 'Microsoft Corp.', category: 'Equities', units: 60, unitLabel: 'sh', avgCost: 310.00, price: 402.10, value: 24_126, dayChangePct: 0.6, totalReturnPct: 29.7 },
+  { symbol: 'AAPL', name: 'Apple Inc.', category: 'Equities', units: 120, unitLabel: 'sh', avgCost: 145.20, price: 178.35, value: 21_402, dayChangePct: 1.8, totalReturnPct: 22.8 },
+  { symbol: 'NVDA', name: 'NVIDIA Corp.', category: 'Equities', units: 40, unitLabel: 'sh', avgCost: 210.50, price: 468.90, value: 18_756, dayChangePct: 3.2, totalReturnPct: 122.7 },
+  { symbol: 'ETH', name: 'Ethereum', category: 'Crypto', units: 4.8, unitLabel: 'ETH', avgCost: 2_150.00, price: 2_880.00, value: 13_824, dayChangePct: -1.6, totalReturnPct: 34.0 },
+  { symbol: 'BND', name: 'Vanguard Total Bond ETF', category: 'Fixed income', units: 130, unitLabel: 'sh', avgCost: 72.10, price: 74.80, value: 9_724, dayChangePct: 0.1, totalReturnPct: 3.7 },
+]
+
+export const portfolioSummary = (() => {
+  const totalValue = holdings.reduce((sum, h) => sum + h.value, 0)
+  const totalCost = holdings.reduce((sum, h) => sum + h.units * h.avgCost, 0)
+  const gain = totalValue - totalCost
+  const largest = holdings.reduce((a, b) => (b.value > a.value ? b : a))
+  const best = holdings.reduce((a, b) => (b.totalReturnPct > a.totalReturnPct ? b : a))
+  return {
+    totalValue,
+    totalCost,
+    gain,
+    gainPct: (gain / totalCost) * 100,
+    count: holdings.length,
+    largestSymbol: largest.symbol,
+    largestPct: (largest.value / totalValue) * 100,
+    bestSymbol: best.symbol,
+    bestReturnPct: best.totalReturnPct,
+  }
+})()
+
+// Same holdings, ranked by today's move — the diverging-bar view of the table above.
+export const topMovers = [...holdings]
+  .sort((a, b) => b.dayChangePct - a.dayChangePct)
+  .map((h) => ({ id: h.symbol, label: h.symbol, name: h.name, value: h.dayChangePct }))
+
+export const activity = [
+  { id: 1, kind: 'buy', title: 'Bought 10 sh NVDA', when: '2 days ago', amount: -4689 },
+  { id: 2, kind: 'div', title: 'Dividend received · VOO', when: '3 days ago', amount: 186.4 },
+  { id: 3, kind: 'buy', title: 'Bought 0.05 BTC', when: '5 days ago', amount: -3395 },
+  { id: 4, kind: 'sell', title: 'Sold 20 sh TLT', when: '1 week ago', amount: 1824 },
+  { id: 5, kind: 'div', title: 'Dividend received · MSFT', when: '2 weeks ago', amount: 45.6 },
 ]
 
 export function formatValue(value, format) {
   switch (format) {
-    case 'compact':
+    case 'currency':
       return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0,
+      }).format(value)
+    case 'currencyCompact':
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
         notation: 'compact',
         maximumFractionDigits: 1,
       }).format(value)
+    case 'currencySigned':
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0,
+        signDisplay: 'always',
+      }).format(value)
     case 'percent':
       return `${value.toFixed(2)}%`
-    case 'ms':
-      return `${value} ms`
+    case 'percent1':
+      return `${value.toFixed(1)}%`
     default:
       return new Intl.NumberFormat('en-US').format(value)
   }

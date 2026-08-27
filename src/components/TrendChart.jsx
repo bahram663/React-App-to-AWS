@@ -8,31 +8,39 @@ const PLOT_H = H - PAD.top - PAD.bottom
 
 const SERIES_COLORS = ['var(--series-1)', 'var(--series-2)']
 
-// Round tick values whose top tick is guaranteed to cover `max` — otherwise the
-// series can run off the top of the plot.
-function niceTicks(max, count = 5) {
-  const mag = Math.pow(10, Math.floor(Math.log10(max / count)))
-  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s * count >= max) ?? 10 * mag
-  const top = Math.ceil(max / step) * step
+// Round tick values that fully cover [min, max] — otherwise the series can
+// run off the plot. `zeroBaseline` pins the bottom tick to 0 (required for
+// magnitude charts, where a windowed axis would exaggerate the trend); line
+// charts of a continuous value like a price index instead window to the data.
+function niceTicks(min, max, { zeroBaseline = true, count = 5 } = {}) {
+  const lo = zeroBaseline ? 0 : min
+  const range = max - lo || 1
+  const rawStep = range / count
+  const mag = Math.pow(10, Math.floor(Math.log10(rawStep)))
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= rawStep) ?? 10 * mag
+  const niceMin = zeroBaseline ? 0 : Math.floor(lo / step) * step
+  const niceMax = Math.ceil(max / step) * step
   const ticks = []
-  for (let t = 0; t <= top + step * 1e-6; t += step) ticks.push(t)
+  for (let t = niceMin; t <= niceMax + step * 1e-6; t += step) ticks.push(t)
   return ticks
 }
 
 /**
  * Multi-series line + area chart with a crosshair tooltip.
- * One y-axis only — both series are the same unit (thousands of requests).
+ * One y-axis only — every series passed in must already share a unit.
  */
-export default function TrendChart({ categories, series, unit = 'k' }) {
+export default function TrendChart({ categories, series, unit = '', ariaLabel, zeroBaseline = true }) {
   const wrapRef = useRef(null)
   const [hover, setHover] = useState(null)
 
-  const max = Math.max(...series.flatMap((s) => s.values))
-  const ticks = niceTicks(max)
+  const dataMin = Math.min(...series.flatMap((s) => s.values))
+  const dataMax = Math.max(...series.flatMap((s) => s.values))
+  const ticks = niceTicks(dataMin, dataMax, { zeroBaseline })
+  const yMin = ticks[0]
   const yMax = ticks[ticks.length - 1]
 
   const x = (i) => PAD.left + (i / (categories.length - 1)) * PLOT_W
-  const y = (v) => PAD.top + PLOT_H - (v / yMax) * PLOT_H
+  const y = (v) => PAD.top + PLOT_H - ((v - yMin) / (yMax - yMin)) * PLOT_H
 
   const linePath = (values) =>
     values.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(2)},${y(v).toFixed(2)}`).join(' ')
@@ -78,10 +86,19 @@ export default function TrendChart({ categories, series, unit = 'k' }) {
       <svg
         viewBox={`0 0 ${W} ${H}`}
         role="img"
-        aria-label={`Monthly request volume, ${series.map((s) => s.name).join(' and ')}, in ${unit} requests.`}
+        aria-label={ariaLabel ?? `${series.map((s) => s.name).join(' vs. ')} over time${unit ? `, in ${unit}` : ''}.`}
         onMouseMove={onMove}
         onMouseLeave={() => setHover(null)}
       >
+        <defs>
+          {series.map((s, si) => (
+            <linearGradient key={s.id} id={`trend-fill-${s.id}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={SERIES_COLORS[si]} stopOpacity="0.22" />
+              <stop offset="100%" stopColor={SERIES_COLORS[si]} stopOpacity="0" />
+            </linearGradient>
+          ))}
+        </defs>
+
         {/* recessive hairline grid */}
         {ticks.map((t) => (
           <g key={t}>
@@ -111,7 +128,7 @@ export default function TrendChart({ categories, series, unit = 'k' }) {
 
         {series.map((s, si) => (
           <g key={s.id}>
-            <path d={areaPath(s.values)} fill={SERIES_COLORS[si]} fillOpacity="0.1" />
+            <path d={areaPath(s.values)} fill={`url(#trend-fill-${s.id})`} />
             <path
               d={linePath(s.values)}
               fill="none"
